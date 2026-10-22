@@ -2,8 +2,8 @@ from machine import Pin
 import time
 
 # 1. PINS DEFINIEREN (Konstanten)
-PIN_LED_RED1    = 15
-PIN_LED_RED2    = 27
+PIN_LED_RED1    = 15 #auto
+PIN_LED_RED2    = 27 #ped
 PIN_LED_GREEN1  = 5
 PIN_LED_GREEN2  = 14
 PIN_LED_YELLOW  = 4
@@ -33,7 +33,6 @@ STATE_CAR_YELLOW_TO_RED   = 1
 STATE_CAR_GREEN_BLINK = 2
 STATE_CAR_GREEN    = 3
 STATE_PED_RED = STATE_CAR_GREEN
-STATE_PED_GREEN = STATE_CAR_RED
 STATE_BLUE_ON = 4
 STATE_CAR_YELLOW_TO_GREEN   = 5
 
@@ -75,7 +74,7 @@ def update_state(now, btn1_pressed, sensor_triggered):
         if btn1_pressed:
             current_state = STATE_CAR_GREEN_BLINK
             start_time = now  # Stoppuhr für neuen Zustand starten!
-            print("Zustand gewechselt: Gruen blinkt")
+            print("Grun blinkt")
 
 
     elif current_state == STATE_CAR_GREEN_BLINK:
@@ -83,12 +82,13 @@ def update_state(now, btn1_pressed, sensor_triggered):
         if time.ticks_diff(now, start_time) >= 5000:
             current_state = STATE_CAR_YELLOW_TO_RED
             start_time = now  # Stoppuhr neu starten!
-            print("Zustand gewechselt: gelb leuchtet")
+            print("Gelb an")
 
     elif current_state == STATE_CAR_YELLOW_TO_RED:
          if time.ticks_diff(now, start_time) >= 1000:
             current_state = STATE_CAR_RED
-            print("Zustand gewechselt: BLINKING -> IDLE")
+            start_time = now
+            print("Rot an")
     
     elif current_state == STATE_CAR_RED:
         # 1. Wenn der Sensor gedrückt/ausgelöst wird, merkst du dir die Startzeit!
@@ -123,7 +123,6 @@ def execute_actions(now):
         led_red2.on()
         if blink_state:
             led_green1.on()
-            led_red2.on()
         
 
     elif current_state == STATE_CAR_YELLOW_TO_RED:
@@ -141,7 +140,7 @@ def execute_actions(now):
 # ==========================================
 # 7. HAUPTSCHLEIFE (STATE MACHINE)
 # ==========================================
-print("System gestartet. Bereit für die Live-Demo!")
+print("System gestartet. Bereit fur die Live-Demo!")
 
 while True:
     jetzt = time.ticks_ms()
@@ -157,10 +156,10 @@ while True:
     if roh != btn1_stabil:
         if time.ticks_diff(jetzt, btn1_t_wechsel) >= ENTPRELL_MS:
             btn1_stabil = roh
-            # <<< HIER ANPASSEN: == 0 bei PULL_UP (Drücken), == 1 bei PULL_DOWN
+          
             if btn1_stabil == 0:  
                 btn1_pressed = True
-                print("Taste entprellt gedrückt!")
+
 
     # --- SENSOR ABFRAGE ---
     sensor_val = sensor.value()
