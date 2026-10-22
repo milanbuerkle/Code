@@ -4,6 +4,7 @@ import time
 # ==========================================
 # 1. PINS DEFINIEREN (Konstanten)
 # ==========================================
+# <<< HIER ANPASSEN: Pin-Nummern laut deiner Steckbrett-Schaltung eintragen
 PIN_LED_RED1    = 5
 PIN_LED_RED2    = 18
 PIN_LED_GREEN1  = 19
@@ -31,7 +32,33 @@ btn2   = Pin(PIN_BTN2, Pin.IN, Pin.PULL_UP)
 sensor = Pin(PIN_SENSOR, Pin.IN, Pin.PULL_UP)
 
 # ==========================================
-# 3. HILFSFUNKTIONEN & ZUSTÄNDE
+# 3. STATI & ZUSTÄNDE DEFINIEREN
+# ==========================================
+# <<< HIER ANPASSEN: Namen & Anzahl deiner Zustände festlegen
+STATE_IDLE     = 0
+STATE_ACTIVE   = 1
+STATE_BLINKING = 2
+STATE_ERROR    = 3
+
+# <<< HIER ANPASSEN: Welcher Zustand soll beim Start aktiv sein?
+current_state = STATE_IDLE
+
+# Timer, Entprell- & Flanken-Speicher
+start_time = 0
+last_blink_time = time.ticks_ms()
+blink_state = False
+
+# <<< HIER ANPASSEN: Entprellzeit falls nötig (30 ms ist Standard)
+ENTPRELL_MS = 30
+
+btn1_roh_alt   = btn1.value()
+btn1_stabil    = btn1_roh_alt
+btn1_t_wechsel = time.ticks_ms()
+
+last_sensor_val = sensor.value()
+
+# ==========================================
+# 4. HILFSFUNKTIONEN
 # ==========================================
 def all_leds_off():
     led_red1.off()
@@ -41,79 +68,47 @@ def all_leds_off():
     led_yellow.off()
     led_special.off()
 
-# Zustände definieren
-STATE_IDLE     = 0
-STATE_ACTIVE   = 1
-STATE_BLINKING = 2
-STATE_ERROR    = 3
-
-current_state = STATE_IDLE
-
-# Timer & Flanken-Speicher
-start_time = 0
-last_blink_time = time.ticks_ms()
-blink_state = False
-
-last_btn1_val   = btn1.value()
-last_btn2_val   = btn2.value()
-last_sensor_val = sensor.value()
-
-print("System gestartet. Bereit für die Live-Demo!")
-
 # ==========================================
-# 4. HAUPTSCHLEIFE (STATE MACHINE)
+# 5. FUNKTION 1: ZUSTANDSWECHSEL (TRANSITIONS)
 # ==========================================
-while True:
-    now = time.ticks_ms()
+def update_state(now, btn1_pressed, sensor_triggered):
+    global current_state, start_time
 
-    # --- A) EINGÄNGE EINLESEN ---
-    btn1_val   = btn1.value()
-    btn2_val   = btn2.value()
-    sensor_val = sensor.value()
-
-    # --- B) FLANKENERKENNUNG (Falling Edge) ---
-    btn1_pressed     = (btn1_val == 0 and last_btn1_val == 1)
-    btn2_pressed     = (btn2_val == 0 and last_btn2_val == 1)
-    sensor_triggered = (sensor_val == 0 and last_sensor_val == 1)  # Lichtschranke unterbrochen
-
-    # --- C) TRANSITIONS (Zustandsübergänge) ---
+    # <<< HIER ANPASSEN: Regeln für den Zustandswechsel
     if current_state == STATE_IDLE:
-        # Taster 1 oder Lichtschranke startet den Ablauf
+        # Bedingung für Wechsel zu ACTIVE (z. B. Taster oder Sensor)
         if btn1_pressed or sensor_triggered:
             current_state = STATE_ACTIVE
-            start_time = now
-            print("Zustand: IDLE -> ACTIVE")
+            start_time = now  # Stoppuhr für neuen Zustand starten!
+            print("Zustand gewechselt: IDLE -> ACTIVE")
 
     elif current_state == STATE_ACTIVE:
-        # Nach 3000 ms weiter zu BLINKING
+        # <<< HIER ANPASSEN: Zeitdauer in Millisekunden (z. B. 3000 = 3 Sek)
         if time.ticks_diff(now, start_time) >= 3000:
             current_state = STATE_BLINKING
-            start_time = now
-            print("Zustand: ACTIVE -> BLINKING")
-        elif btn2_pressed:
-            current_state = STATE_ERROR
-            print("Zustand: ACTIVE -> ERROR")
+            start_time = now  # Stoppuhr neu starten!
+            print("Zustand gewechselt: ACTIVE -> BLINKING")
 
     elif current_state == STATE_BLINKING:
-        # Nach 5000 ms zurück zu IDLE
+        # <<< HIER ANPASSEN: Zeitdauer in Millisekunden (z. B. 5000 = 5 Sek)
         if time.ticks_diff(now, start_time) >= 5000:
             current_state = STATE_IDLE
-            print("Zustand: BLINKING -> IDLE")
+            print("Zustand gewechselt: BLINKING -> IDLE")
 
-    elif current_state == STATE_ERROR:
-        # Taster 2 quittiert den Fehler
-        if btn2_pressed:
-            current_state = STATE_IDLE
-            print("Fehler quittiert -> IDLE")
+# ==========================================
+# 6. FUNKTION 2: AKTIONEN (LEDS SCHALTEN)
+# ==========================================
+def execute_actions(now):
+    global last_blink_time, blink_state
 
-    # --- D) AKTIONEN (Ausgänge / LEDs schalten) ---
-    all_leds_off()
+    all_leds_off()  # Zuerst alle LEDs zurücksetzen
 
-    # Nicht-blockierender Blink-Taktgeber (alle 250 ms umschalten)
+    # <<< HIER ANPASSEN: Blink-Frequenz in ms (z. B. 250 ms = 4x pro Sekunde)
     if time.ticks_diff(now, last_blink_time) >= 250:
         blink_state = not blink_state
         last_blink_time = now
 
+    # <<< HIER ANPASSEN: Welches Signal leuchtet in welchem Zustand?
     if current_state == STATE_IDLE:
         led_green1.on()
         led_red1.on()
@@ -124,7 +119,7 @@ while True:
 
     elif current_state == STATE_BLINKING:
         if blink_state:
-            led_yellow.on()
+            led_yellow.on()  # Blinken!
         led_special.on()
 
     elif current_state == STATE_ERROR:
@@ -132,7 +127,39 @@ while True:
             led_red1.on()
             led_red2.on()
 
-    # --- E) FLANKEN-SPEICHER AKTUALISIEREN ---
-    last_btn1_val   = btn1_val
-    last_btn2_val   = btn2_val
+# ==========================================
+# 7. HAUPTSCHLEIFE (STATE MACHINE)
+# ==========================================
+print("System gestartet. Bereit für die Live-Demo!")
+
+while True:
+    jetzt = time.ticks_ms()
+    btn1_pressed = False
+
+    # --- ENTPRELL-BLOCK FÜR BTN1 ---
+    roh = btn1.value()
+    
+    if roh != btn1_roh_alt:  # Pegel hat sich geändert
+        btn1_roh_alt = roh
+        btn1_t_wechsel = jetzt  # Stoppuhr neu starten
+        
+    if roh != btn1_stabil:
+        if time.ticks_diff(jetzt, btn1_t_wechsel) >= ENTPRELL_MS:
+            btn1_stabil = roh
+            # <<< HIER ANPASSEN: == 0 bei PULL_UP (Drücken), == 1 bei PULL_DOWN
+            if btn1_stabil == 0:  
+                btn1_pressed = True
+                print("Taste entprellt gedrückt!")
+
+    # --- SENSOR ABFRAGE ---
+    sensor_val = sensor.value()
+    # <<< HIER ANPASSEN: Flankenerkennung für Lichtschranke (0 = unterbrochen)
+    sensor_triggered = (sensor_val == 0 and last_sensor_val == 1)
+
+    # --- FUNKTIONSAUFRUFE ---
+    update_state(jetzt, btn1_pressed, sensor_triggered)
+    execute_actions(jetzt)
+
+    # --- FLANKEN-SPEICHER AKTUALISIEREN ---
     last_sensor_val = sensor_val
+    
